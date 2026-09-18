@@ -1,7 +1,10 @@
 import Constants from "expo-constants";
 
 const baseUrl =
-  Constants.expoConfig?.extra?.backendUrl ?? process.env.EXPO_PUBLIC_BACKEND_URL ?? "";
+  Constants.expoConfig?.extra?.backendUrl ??
+  process.env.EXPO_PUBLIC_BACKEND_URL ??
+  process.env.EXPO_BACKEND_URL ??
+  "";
 
 export type User = { id: string; email: string; created_at: string };
 export type Organ = {

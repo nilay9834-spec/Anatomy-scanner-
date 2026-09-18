@@ -21,7 +21,7 @@ export default function ModelScreen() {
   return (
     <View style={styles.root}>
       <View style={[styles.toolbar, { paddingTop: insets.top + 8 }]}>
-        <Pressable accessibilityRole="button" onPress={() => router.back()} style={styles.toolbarButton}>
+        <Pressable accessibilityRole="button" onPress={() => router.back()} style={styles.toolbarButton} testID="model-close">
           <Ionicons name="close" size={22} color={colors.onSurface} />
         </Pressable>
         <View style={styles.toolbarTitle}><Text style={styles.toolbarKicker}>INTERACTIVE MODEL</Text><Text style={styles.title}>{title}</Text></View>
@@ -42,7 +42,7 @@ export default function ModelScreen() {
           {loading ? <View style={styles.loadingOverlay}><ActivityIndicator color={colors.brandPrimary} /><Text style={styles.loadingText}>Loading 3D interactive environment…</Text></View> : null}
         </View>
       ) : url && Platform.OS === "web" ? (
-        <View style={styles.emptyState}><Ionicons name="cube-outline" size={40} color={colors.brandPrimary} /><Text style={styles.emptyTitle}>Interactive model ready</Text><Text style={styles.emptyText}>The native app opens this model in the in-app viewer. Use the button below in web preview.</Text><Pressable onPress={() => Linking.openURL(url)} style={styles.backCta}><Text style={styles.backCtaText}>Open 3D model</Text></Pressable></View>
+        <View style={styles.emptyState}><Ionicons name="cube-outline" size={40} color={colors.brandPrimary} /><Text style={styles.emptyTitle}>Interactive model ready</Text><Text style={styles.emptyText}>The native app opens this model in the in-app viewer. Use the button below in web preview.</Text><Pressable onPress={() => Linking.openURL(url)} style={styles.backCta} testID="model-open-external"><Text style={styles.backCtaText}>Open 3D model</Text></Pressable></View>
       ) : (
         <View style={styles.emptyState}><Ionicons name="cube-outline" size={40} color={colors.brandPrimary} /><Text style={styles.emptyTitle}>{failed ? "The model could not load" : "3D model source unavailable"}</Text><Text style={styles.emptyText}>Check your connection and try again.</Text><Pressable onPress={() => router.back()} style={styles.backCta}><Text style={styles.backCtaText}>Return to organ</Text></Pressable></View>
       )}

@@ -183,6 +183,7 @@ function AuthScreen({
               <Pressable
                 key={item}
                 accessibilityRole="button"
+                testID={`auth-${item}-toggle`}
                 onPress={() => {
                   setMode(item);
                   setError("");
@@ -235,7 +236,7 @@ function AuthScreen({
             {busy ? <ActivityIndicator color={colors.onBrandPrimary} /> : <Text style={styles.primaryButtonText}>{mode === "login" ? "Enter the lab" : "Start exploring"}</Text>}
             {!busy ? <Ionicons name="arrow-forward" size={19} color={colors.onBrandPrimary} /> : null}
           </Pressable>
-          <Pressable accessibilityRole="button" onPress={onGuest} style={styles.guestButton}>
+          <Pressable accessibilityRole="button" onPress={onGuest} style={styles.guestButton} testID="guest-entry">
             <Text style={styles.guestText}>Continue as guest</Text>
             <Ionicons name="arrow-forward-outline" size={16} color={colors.brandPrimary} />
           </Pressable>
@@ -287,7 +288,7 @@ function GalleryScreen({
         <Text style={styles.gallerySubtitle}>Pick an organ to uncover how it works.</Text>
         <View style={styles.searchWrap}>
           <Ionicons name="search-outline" size={20} color={colors.muted} />
-          <TextInput onChangeText={setQuery} placeholder="Search organs" placeholderTextColor={colors.muted} style={styles.searchInput} value={query} />
+          <TextInput onChangeText={setQuery} placeholder="Search organs" placeholderTextColor={colors.muted} style={styles.searchInput} testID="organ-search" value={query} />
         </View>
         <View style={styles.sectionHeading}>
           <Text style={styles.sectionTitle}>Core systems</Text>
@@ -315,7 +316,7 @@ function OrganCard({ organ, onPress }: { organ: Organ; onPress: () => void }) {
   const { colors } = useTheme();
   const styles = useStyles();
   return (
-    <Pressable accessibilityRole="button" onPress={onPress} style={({ pressed }) => [styles.organCard, pressed && styles.cardPressed]}>
+    <Pressable accessibilityRole="button" onPress={onPress} style={({ pressed }) => [styles.organCard, pressed && styles.cardPressed]} testID={`organ-card-${organ.id}`}>
       <Image source={{ uri: anatomyAssets[organ.id] }} style={styles.organImage} />
       <View style={styles.organCopy}>
         <View style={styles.cardTopline}><Text style={styles.organCategory}>{organ.category}</Text>{organ.model_url ? <View style={styles.modelBadge}><Ionicons name="cube-outline" size={12} color={colors.onBrandTertiary} /><Text style={styles.modelBadgeText}>3D</Text></View> : null}</View>
@@ -337,7 +338,7 @@ function DetailScreen({ organ, onBack, onLaunch }: { organ: Organ; onBack: () =>
       <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 116 }}>
         <View style={styles.detailHero}>
           <Image source={{ uri: anatomyAssets[organ.id] }} style={styles.detailImage} />
-          <Pressable accessibilityRole="button" onPress={onBack} style={[styles.backButton, { top: insets.top + 12 }]}><Ionicons name="arrow-back" size={22} color={colors.onSurface} /></Pressable>
+          <Pressable accessibilityRole="button" onPress={onBack} style={[styles.backButton, { top: insets.top + 12 }]} testID="detail-back"><Ionicons name="arrow-back" size={22} color={colors.onSurface} /></Pressable>
         </View>
         <View style={styles.detailBody}>
           <Text style={styles.eyebrow}>{organ.category.toUpperCase()}</Text>
@@ -351,7 +352,7 @@ function DetailScreen({ organ, onBack, onLaunch }: { organ: Organ; onBack: () =>
         </View>
       </ScrollView>
       <View style={[styles.detailActionBar, { paddingBottom: insets.bottom + 16 }]}>
-        <Pressable accessibilityRole="button" disabled={!hasModel} onPress={onLaunch} style={({ pressed }) => [styles.primaryButton, styles.detailButton, pressed && styles.buttonPressed, !hasModel && styles.buttonDisabled]}>
+        <Pressable accessibilityRole="button" disabled={!hasModel} onPress={onLaunch} style={({ pressed }) => [styles.primaryButton, styles.detailButton, pressed && styles.buttonPressed, !hasModel && styles.buttonDisabled]} testID="detail-launch-3d">
           <Ionicons name="cube-outline" size={20} color={colors.onBrandPrimary} /><Text style={styles.primaryButtonText}>{hasModel ? "Launch 3D model" : "3D model coming soon"}</Text><Ionicons name="arrow-forward" size={18} color={colors.onBrandPrimary} />
         </Pressable>
       </View>
