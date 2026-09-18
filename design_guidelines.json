@@ -1,0 +1,148 @@
+{
+  "app_name": "Anatomy 3D Explorer",
+  "personality": "1 iOS-Native Clean",
+  "personality_one_liner": "An immersive, crystal-clear anatomical explorer pairing tactile iOS navigation with interactive 3D organ visualization.",
+  "color": {
+    "surface": "#F8FAFC",
+    "onSurface": "#0F172A",
+    "surfaceSecondary": "#FFFFFF",
+    "onSurfaceSecondary": "#1E293B",
+    "surfaceTertiary": "#F1F5F9",
+    "onSurfaceTertiary": "#475569",
+    "surfaceInverse": "#0F172A",
+    "onSurfaceInverse": "#F8FAFC",
+    "brand": "#0284C7",
+    "brandPrimary": "#0284C7",
+    "onBrandPrimary": "#FFFFFF",
+    "brandSecondary": "#38BDF8",
+    "onBrandSecondary": "#0F172A",
+    "brandTertiary": "#E0F2FE",
+    "onBrandTertiary": "#0369A1",
+    "success": "#10B981",
+    "onSuccess": "#FFFFFF",
+    "warning": "#F59E0B",
+    "onWarning": "#FFFFFF",
+    "error": "#EF4444",
+    "onError": "#FFFFFF",
+    "info": "#0284C7",
+    "onInfo": "#FFFFFF",
+    "border": "#E2E8F0",
+    "borderStrong": "#CBD5E1",
+    "divider": "#F1F5F9",
+    "muted": "#64748B",
+    "onBrand": "#FFFFFF"
+  },
+  "typography": {
+    "displayFontFamily": "System",
+    "textFontFamily": "System",
+    "scale": {
+      "sm": 12,
+      "base": 14,
+      "lg": 16,
+      "xl": 20,
+      "2xl": 24
+    }
+  },
+  "spacing": {
+    "rule": "Maintain generous breathing room and iOS vertical rhythm with safe area padding.",
+    "xs": 4,
+    "sm": 8,
+    "md": 12,
+    "lg": 16,
+    "xl": 24,
+    "2xl": 32,
+    "3xl": 48
+  },
+  "radius_tokens": {
+    "sm": 6,
+    "md": 12,
+    "lg": 20,
+    "pill": 999
+  },
+  "shadow_tier": "1",
+  "navigation": "stack_only",
+  "icon_set": "Ionicons",
+  "glassmorphism": {
+    "enabled": "true",
+    "do's": [
+      "Use frosted glass headers over scrolling organ grids",
+      "Use translucent bottom action sheets for 3D link launch"
+    ],
+    "dont's": [
+      "Do not blur form inputs or text readouts"
+    ]
+  },
+  "platform_libraries": {
+    "glass": {
+      "ios": "expo-glass-effect",
+      "android": "expo-blur",
+      "low_end_android_fallback": "solid surfaceSecondary"
+    },
+    "image": "expo-image",
+    "blur": "expo-blur",
+    "bottom_sheet": "@gorhom/bottom-sheet",
+    "animation": "react-native-reanimated",
+    "gesture": "react-native-gesture-handler"
+  },
+  "screens": [
+    {
+      "name": "Auth / Welcome",
+      "purpose": "Email/password login, signup, and guest entry with clean iOS styling.",
+      "states": {
+        "loading": "Authenticating credentials securely...",
+        "empty": "Enter email and password to begin.",
+        "error": "Invalid email or password. Please retry."
+      },
+      "layout": "Vertical centered hero with medical symbol mark, tabbed segment for Login / Signup, input fields with validation, sticky primary CTA, and subtle 'Continue as Guest' secondary action."
+    },
+    {
+      "name": "Organ Gallery",
+      "purpose": "Explore human body organs including lungs, liver, kidney, and heart with gorgeous visual cards.",
+      "states": {
+        "loading": "Loading anatomical database...",
+        "empty": "No organs available in database.",
+        "error": "Failed to connect to anatomical models service. Retry."
+      },
+      "layout": "Header with user greeting and account badge, search bar, and a responsive vertical list of organ cards featuring real imagery, clinical stats, and 3D badges."
+    },
+    {
+      "name": "Organ Detail",
+      "purpose": "Detailed anatomical breakdown of the selected organ with clinical facts and direct launch into the interactive 3D model viewer.",
+      "states": {
+        "loading": "Fetching organ specifications...",
+        "empty": "Organ details not found.",
+        "error": "Could not load organ specs. Retry."
+      },
+      "layout": "Hero image with gradient scrim, collapsible stats panel, physiological breakdown, and a sticky bottom action bar featuring 'Launch 3D Interactive Model'."
+    },
+    {
+      "name": "3D Model Viewer",
+      "purpose": "In-app browser viewer rendering the external 3D anatomy link (e.g. lungs 3D model) inside a secure native web view with toolbar.",
+      "states": {
+        "loading": "Loading 3D interactive environment...",
+        "empty": "3D model source unavailable.",
+        "error": "Failed to load 3D web viewer. Check connection and retry."
+      },
+      "layout": "Top navigation bar with back control, organ title, share action, full-screen WebView with loading indicator, and bottom floating interaction hint bar."
+    }
+  ],
+  "images": {
+    "lungs_hero": {
+      "url": "https://images.unsplash.com/photo-1743767587847-08c42b31cdec?crop=entropy&cs=srgb&fm=jpg&q=85",
+      "alt": "Human lungs anatomical model"
+    },
+    "heart_hero": {
+      "url": "https://images.unsplash.com/photo-1715111965532-909237bb57c1?crop=entropy&cs=srgb&fm=jpg&q=85",
+      "alt": "Human heart anatomical illustration"
+    },
+    "liver_hero": {
+      "url": "https://images.unsplash.com/photo-1715529134931-b28c2984b79d?crop=entropy&cs=srgb&fm=jpg&q=85",
+      "alt": "Human liver anatomical diagram"
+    },
+    "kidney_hero": {
+      "url": "https://images.unsplash.com/photo-1555708982-8645ec9ce3cc?crop=entropy&cs=srgb&fm=jpg&q=85",
+      "alt": "Human anatomical kidney model"
+    }
+  },
+  "instructions_to_main_agent": "Ensure real email/password authentication is fully wired with backend session state. Provide guest entry bypass option. Build the 4 key screens: Auth, Organ Gallery, Organ Detail, and In-App 3D Viewer (WebView). Ensure lungs link https://glittering-bublanina-243c34.netlify.app/ is correctly passed when opening the lungs 3D viewer. Follow iOS-native Clean palette and touch targets."
+}
