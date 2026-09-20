@@ -20,6 +20,7 @@ export default function RootLayout() {
           <Stack screenOptions={{ headerShown: false }}>
             <Stack.Screen name="index" />
             <Stack.Screen name="model" options={{ presentation: "modal" }} />
+            <Stack.Screen name="admin" />
           </Stack>
         </KeyboardProvider>
       </QueryClientProvider>

@@ -1,38 +1,29 @@
-# Anatomy 3D Explorer PRD
+# Anatomy 3D Explorer
 
-## Problem statement
-Build a mobile app with email/password login and signup, a gallery of human body parts (lungs, liver, kidney, and heart), and tappable 3D model links. The lungs model uses `https://glittering-bublanina-243c34.netlify.app/` and opens in-app.
+## Problem
+A mobile-first anatomy learning app for students. Educators need to gate access, curate the organ library, and drop in 3D model links per organ. Learners want a clean gallery with an in-app 3D viewer.
 
-## Architecture
-- Expo SDK 57 React Native frontend with Expo Router and a stack-only flow.
-- FastAPI backend on port 8001 with MongoDB users collection and JWT session tokens.
-- AsyncStorage stores the authenticated session token on-device.
-- React Native WebView renders the external interactive model inside the app.
+## What was built
+- **Passwordless user access via email OTP** (managed Resend integration, 10-min code) with **admin approval** before a learner can enter the gallery.
+- **Admin login** (`physicsproject@gmail.com` / `Air@123`, seeded on backend startup) with JWT sessions that persist until sign-out.
+- **Admin console** (Dashboard, Access Requests, Users, Models) — approve / reject / disable / delete users, add / edit / hide / delete anatomy models, paste an image URL and a 3D model URL per organ.
+- **Dynamic organ gallery** driven by MongoDB — 4 default organs (Lungs, Heart, Liver, Kidneys) seeded on first run, Lungs pre-wired to `https://glittering-bublanina-243c34.netlify.app/`.
+- **In-app 3D viewer** (WebView) launched from the organ detail screen.
 
-## User personas
-- Curious learners exploring basic organ anatomy.
-- Students who want a quick visual reference for core body systems.
+## Tech
+- FastAPI + Motor (Mongo) backend at `/api/*`.
+- Expo Router React Native app with theme tokens from `src/theme.ts`.
+- Managed Resend transactional email (no user API keys).
 
-## Core requirements (static)
-- Real email/password signup and login.
-- Guest access without an account.
-- Gallery and detail views for lungs, heart, liver, and kidneys.
-- In-app 3D viewer for a supplied organ link.
-- Clean, accessible mobile UI with touch-friendly controls.
+## Data model
+- `users` — `{id, email, role: "admin"|"user", status: "pending_verification"|"pending"|"approved"|"rejected"|"disabled", password_hash (admin only), created_at, updated_at, last_login_at}`
+- `otps` — `{email, code_hash, expires_at (ISO), attempts, created_at}`
+- `anatomy_models` — `{id, name, category, description, function, fact, image_url, model_url, accent, display_order, active, created_at, updated_at}`
 
-## Implemented (2026-03-08)
-- Added backend signup, login, session verification, and organ catalog endpoints.
-- Added themed auth screen with guest entry and persisted sessions.
-- Added searchable organ gallery, detail pages, inline anatomical illustrations, facts, and 3D readiness badges.
-- Added modal in-app WebView model viewer with loading and error states.
+## Key endpoints
+- `POST /api/auth/admin-login`, `POST /api/auth/request-access`, `POST /api/auth/verify-otp`, `GET /api/auth/me`
+- `GET /api/anatomy-models` (approved users)
+- `GET /api/admin/stats | /requests | /users | /anatomy-models`, `PATCH/DELETE /api/admin/users/{id}`, `POST/PATCH/DELETE /api/admin/anatomy-models[/{id}]`
 
-## Prioritized backlog
-- P0: Add supplied model URLs for heart, liver, and kidneys when available.
-- P1: Add saved organs and recently viewed models.
-- P1: Add short educational lessons and quizzes per organ.
-- P2: Add optional reminders for daily anatomy learning.
-
-## Next task list
-1. Validate the supplied lungs WebView URL on iOS and Android.
-2. Add additional model links from the content owner.
-3. Add analytics-free learning progress if users request it.
+## Credentials
+See `/app/memory/test_credentials.md`.
