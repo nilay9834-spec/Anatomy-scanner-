@@ -2,6 +2,7 @@ from datetime import datetime, timezone, timedelta
 import asyncio
 import ipaddress
 import logging
+import mimetypes
 import os
 import re
 import secrets
@@ -15,8 +16,11 @@ from urllib.parse import urlparse
 import bcrypt
 import httpx
 import jwt
+import requests
 from dotenv import load_dotenv
-from fastapi import APIRouter, Depends, FastAPI, HTTPException, status
+from fastapi import APIRouter, Depends, FastAPI, File, HTTPException, Query, Request, UploadFile, status
+from fastapi.concurrency import run_in_threadpool
+from fastapi.responses import Response
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, EmailStr, Field
@@ -45,6 +49,77 @@ EMAIL_REPLY_TO = os.environ.get("EMAIL_REPLY_TO")
 
 OTP_TTL_MINUTES = 10
 OTP_MAX_ATTEMPTS = 5
+
+APP_NAME = "anatomy-lab"
+STORAGE_BASE = (os.environ.get("INTEGRATION_PROXY_URL") or "").strip() or "https://integrations.emergentagent.com"
+STORAGE_URL = STORAGE_BASE.rstrip("/") + "/objstore/api/v1/storage"
+EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY")
+_storage_key: Optional[str] = None
+MAX_UPLOAD_BYTES = 8 * 1024 * 1024  # 8 MB cap for anatomy images
+ALLOWED_IMAGE_MIME = {"image/jpeg", "image/png", "image/webp", "image/gif"}
+
+
+def init_storage() -> str:
+    """Idempotent — obtain a reusable X-Storage-Key. Sync (uses `requests`)."""
+    global _storage_key
+    if _storage_key:
+        return _storage_key
+    if not EMERGENT_LLM_KEY:
+        raise RuntimeError("EMERGENT_LLM_KEY is not configured")
+    resp = requests.post(
+        f"{STORAGE_URL}/init",
+        json={"emergent_key": EMERGENT_LLM_KEY},
+        timeout=30,
+    )
+    resp.raise_for_status()
+    _storage_key = resp.json()["storage_key"]
+    return _storage_key
+
+
+def _reset_storage_key() -> None:
+    global _storage_key
+    _storage_key = None
+
+
+def put_object(path: str, data: bytes, content_type: str) -> dict:
+    key = init_storage()
+    resp = requests.put(
+        f"{STORAGE_URL}/objects/{path}",
+        headers={"X-Storage-Key": key, "Content-Type": content_type},
+        data=data,
+        timeout=120,
+    )
+    if resp.status_code == 503:
+        _reset_storage_key()
+        key = init_storage()
+        resp = requests.put(
+            f"{STORAGE_URL}/objects/{path}",
+            headers={"X-Storage-Key": key, "Content-Type": content_type},
+            data=data,
+            timeout=120,
+        )
+    resp.raise_for_status()
+    return resp.json()
+
+
+def get_object(path: str) -> tuple[bytes, str]:
+    key = init_storage()
+    resp = requests.get(
+        f"{STORAGE_URL}/objects/{path}",
+        headers={"X-Storage-Key": key},
+        timeout=60,
+    )
+    if resp.status_code == 503:
+        _reset_storage_key()
+        key = init_storage()
+        resp = requests.get(
+            f"{STORAGE_URL}/objects/{path}",
+            headers={"X-Storage-Key": key},
+            timeout=60,
+        )
+    resp.raise_for_status()
+    return resp.content, resp.headers.get("Content-Type", "application/octet-stream")
+
 
 security = HTTPBearer(auto_error=False)
 
@@ -580,6 +655,99 @@ async def admin_delete_model(model_id: str, _: UserPublic = Depends(require_admi
     return None
 
 
+# ─── Uploads (images) ────────────────────────────────────────────────────────
+
+def _make_file_token(path: str) -> str:
+    return jwt.encode(
+        {"path": path, "exp": (now_utc() + timedelta(days=365)).timestamp()},
+        JWT_SECRET,
+        algorithm=JWT_ALGORITHM,
+    )
+
+
+def _extension_for(content_type: str, filename: Optional[str]) -> str:
+    if filename:
+        _, ext = os.path.splitext(filename)
+        if ext:
+            return ext.lower()
+    guessed = mimetypes.guess_extension(content_type or "") or ".bin"
+    return guessed
+
+
+@api_router.post("/uploads/images")
+async def upload_image(
+    file: UploadFile = File(...),
+    admin: UserPublic = Depends(require_admin),
+):
+    content_type = (file.content_type or "").lower()
+    if content_type not in ALLOWED_IMAGE_MIME:
+        raise HTTPException(status_code=400, detail="Unsupported image type. Use JPG, PNG, WEBP or GIF.")
+    data = await file.read()
+    if not data:
+        raise HTTPException(status_code=400, detail="Empty file.")
+    if len(data) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail="Image is too large (max 8 MB).")
+    ext = _extension_for(content_type, file.filename)
+    path = f"{APP_NAME}/uploads/{admin.id}/{uuid.uuid4().hex}{ext}"
+    try:
+        await run_in_threadpool(put_object, path, data, content_type)
+    except requests.HTTPError as e:
+        code = e.response.status_code if e.response is not None else 500
+        if code == 402:
+            raise HTTPException(status_code=402, detail="Storage credits exhausted. Please add balance.")
+        logger.error(f"Storage upload failed: {code} {getattr(e.response,'text','')}")
+        raise HTTPException(status_code=502, detail="Upload failed. Please try again.")
+    except Exception as e:
+        logger.error(f"Storage upload error: {e}")
+        raise HTTPException(status_code=500, detail="Upload failed. Please try again.")
+
+    token = _make_file_token(path)
+    url = f"/api/files/{path}?token={token}"
+    return {"storage_path": path, "url": url, "size": len(data), "content_type": content_type}
+
+
+@api_router.get("/files/{path:path}")
+async def serve_file(
+    path: str,
+    token: Optional[str] = Query(None),
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+):
+    # Accept either a bearer token (any authenticated user) or a signed short-lived query token.
+    authorized = False
+    bearer = credentials.credentials if credentials else None
+    if bearer:
+        try:
+            payload = jwt.decode(bearer, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+            if payload.get("sub"):
+                authorized = True
+        except jwt.PyJWTError:
+            pass
+    if not authorized and token:
+        try:
+            payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+            if payload.get("path") == path:
+                authorized = True
+        except jwt.PyJWTError:
+            pass
+    if not authorized:
+        raise HTTPException(status_code=401, detail="Not authorized to view this file")
+
+    try:
+        content, ctype = await run_in_threadpool(get_object, path)
+    except requests.HTTPError as e:
+        code = e.response.status_code if e.response is not None else 500
+        if code == 500:
+            # Storage returns 500 for missing objects.
+            raise HTTPException(status_code=404, detail="File not found")
+        logger.error(f"Storage download failed: {code}")
+        raise HTTPException(status_code=502, detail="Unable to retrieve file")
+    except Exception as e:
+        logger.error(f"Storage download error: {e}")
+        raise HTTPException(status_code=500, detail="Unable to retrieve file")
+
+    return Response(content=content, media_type=ctype, headers={"Cache-Control": "public, max-age=86400"})
+
+
 # ─── Seeder ──────────────────────────────────────────────────────────────────
 
 DEFAULT_MODELS = [
@@ -677,6 +845,11 @@ async def on_startup():
         await seed_data()
     except Exception as e:
         logger.error(f"Seeding failed: {e}")
+    try:
+        await run_in_threadpool(init_storage)
+        logger.info("Object storage initialized")
+    except Exception as e:
+        logger.error(f"Storage init failed: {e}")
 
 
 @app.on_event("shutdown")

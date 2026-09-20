@@ -175,3 +175,39 @@ export function adminUpdateModel(token: string, id: string, data: AnatomyModelIn
 export function adminDeleteModel(token: string, id: string) {
   return request<void>(`/api/admin/anatomy-models/${id}`, { method: "DELETE" }, token);
 }
+
+// ─── Uploads ───────────────────────────────────────────────────────────────
+
+export type UploadResult = {
+  storage_path: string;
+  url: string;
+  size: number;
+  content_type: string;
+};
+
+export async function uploadImage(
+  token: string,
+  file: { uri: string; name: string; type: string },
+): Promise<UploadResult> {
+  const { Platform } = await import("react-native");
+  const form = new FormData();
+  if (Platform.OS === "web") {
+    const blob = await (await fetch(file.uri)).blob();
+    form.append("file", blob, file.name);
+  } else {
+    // React Native native shape — cast keeps TS happy.
+    form.append("file", { uri: file.uri, name: file.name, type: file.type } as any);
+  }
+  const response = await fetch(`${baseUrl}/api/uploads/images`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+    body: form,
+  });
+  const text = await response.text();
+  const body = text ? safeJson(text) : {};
+  if (!response.ok) {
+    const detail = (body && (body.detail || body.message)) || `Upload failed (${response.status})`;
+    throw new Error(typeof detail === "string" ? detail : "Upload failed");
+  }
+  return body as UploadResult;
+}

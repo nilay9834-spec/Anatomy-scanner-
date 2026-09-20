@@ -1,10 +1,12 @@
 import { Ionicons } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
 import { useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
   Image,
   KeyboardAvoidingView,
+  Linking,
   Modal,
   Platform,
   Pressable,
@@ -24,8 +26,9 @@ import {
   adminDeleteModel,
   adminListModels,
   adminUpdateModel,
+  uploadImage,
 } from "@/src/api";
-import { resolveModelImage } from "@/src/model-image";
+import { resolveModelImage, absoluteImageUrl } from "@/src/model-image";
 import { makeStyles, useTheme } from "@/src/theme";
 import { useAdmin } from "./_layout";
 
@@ -292,6 +295,8 @@ function ModelEditor({
   const styles = useStyles();
   const [form, setForm] = useState<AnatomyModelInput>(EMPTY_FORM);
   const [busy, setBusy] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
   const [error, setError] = useState("");
 
   useFocusEffect(
@@ -314,11 +319,63 @@ function ModelEditor({
         setForm(EMPTY_FORM);
       }
       setError("");
+      setUploadError("");
     }, [visible, editing]),
   );
 
   const set = <K extends keyof AnatomyModelInput>(k: K, v: AnatomyModelInput[K]) =>
     setForm((prev) => ({ ...prev, [k]: v }));
+
+  const pickAndUpload = async () => {
+    setUploadError("");
+    try {
+      if (Platform.OS !== "web") {
+        const perm = await ImagePicker.getMediaLibraryPermissionsAsync();
+        if (!perm.granted) {
+          const req = await ImagePicker.requestMediaLibraryPermissionsAsync();
+          if (!req.granted) {
+            if (!req.canAskAgain) {
+              setUploadError(
+                "Photo access is blocked. Open Settings to enable it.",
+              );
+            } else {
+              setUploadError("Photo access is needed to pick an image.");
+            }
+            return;
+          }
+        }
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"],
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.85,
+        base64: false,
+      });
+      if (result.canceled || !result.assets?.length) return;
+      const asset = result.assets[0];
+      setUploading(true);
+      const filename =
+        asset.fileName ??
+        `image-${Date.now()}.${(asset.mimeType?.split("/")[1] || "jpg").replace("jpeg", "jpg")}`;
+      const type = asset.mimeType ?? (Platform.OS === "web" ? "image/jpeg" : "image/jpeg");
+      const uploaded = await uploadImage(token, {
+        uri: asset.uri,
+        name: filename,
+        type,
+      });
+      set("image_url", uploaded.url);
+    } catch (e) {
+      setUploadError(e instanceof Error ? e.message : "Could not upload image.");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const clearImage = () => {
+    set("image_url", "");
+    setUploadError("");
+  };
 
   const save = async () => {
     setError("");
@@ -389,14 +446,95 @@ function ModelEditor({
             testID="model-function"
           />
           <FormField label="Fun fact *" value={form.fact} onChange={(v) => set("fact", v)} multiline testID="model-fact" />
-          <FormField
-            label="Image URL"
-            value={form.image_url ?? ""}
-            onChange={(v) => set("image_url", v)}
-            placeholder="https://…"
-            autoCapitalize="none"
-            testID="model-image-url"
-          />
+
+          <View style={{ marginTop: 16 }}>
+            <Text style={styles.formLabel}>Model image</Text>
+            <Text style={styles.helperText}>
+              Used as the card thumbnail in the gallery and the banner on the detail
+              screen.
+            </Text>
+            {form.image_url ? (
+              <View style={styles.uploadPreviewWrap} testID="model-image-preview">
+                <Image
+                  source={{ uri: absoluteImageUrl(form.image_url) }}
+                  style={styles.uploadPreview}
+                />
+                <View style={styles.uploadPreviewActions}>
+                  <Pressable
+                    onPress={pickAndUpload}
+                    disabled={uploading}
+                    style={[styles.uploadBtn, styles.uploadBtnSecondary]}
+                    testID="model-image-replace"
+                  >
+                    {uploading ? (
+                      <ActivityIndicator color={colors.brandPrimary} />
+                    ) : (
+                      <>
+                        <Ionicons name="refresh" size={16} color={colors.brandPrimary} />
+                        <Text style={[styles.uploadBtnText, { color: colors.brandPrimary }]}>
+                          Replace
+                        </Text>
+                      </>
+                    )}
+                  </Pressable>
+                  <Pressable
+                    onPress={clearImage}
+                    disabled={uploading}
+                    style={[styles.uploadBtn, styles.uploadBtnGhost]}
+                    testID="model-image-remove"
+                  >
+                    <Ionicons name="trash-outline" size={16} color={colors.error} />
+                    <Text style={[styles.uploadBtnText, { color: colors.error }]}>
+                      Remove
+                    </Text>
+                  </Pressable>
+                </View>
+              </View>
+            ) : (
+              <Pressable
+                onPress={pickAndUpload}
+                disabled={uploading}
+                style={styles.uploadDropzone}
+                testID="model-image-upload"
+              >
+                {uploading ? (
+                  <>
+                    <ActivityIndicator color={colors.brandPrimary} />
+                    <Text style={styles.uploadHint}>Uploading…</Text>
+                  </>
+                ) : (
+                  <>
+                    <View style={styles.uploadIcon}>
+                      <Ionicons
+                        name="cloud-upload-outline"
+                        size={26}
+                        color={colors.brandPrimary}
+                      />
+                    </View>
+                    <Text style={styles.uploadTitle}>Upload an image</Text>
+                    <Text style={styles.uploadHint}>
+                      Pick a JPG, PNG or WEBP from your device (up to 8 MB).
+                    </Text>
+                  </>
+                )}
+              </Pressable>
+            )}
+            {uploadError ? (
+              <View style={styles.uploadErrorRow}>
+                <Text style={styles.errorText}>{uploadError}</Text>
+                {uploadError.includes("Settings") ? (
+                  <Pressable
+                    onPress={() => Linking.openSettings()}
+                    style={styles.settingsBtn}
+                    testID="open-settings"
+                  >
+                    <Text style={styles.settingsBtnText}>Open Settings</Text>
+                  </Pressable>
+                ) : null}
+              </View>
+            ) : null}
+          </View>
+
           <FormField
             label="3D model URL"
             value={form.model_url ?? ""}
@@ -670,4 +808,91 @@ const useStyles = makeStyles((colors) => ({
     gap: 8,
   },
   saveText: { color: colors.onBrandPrimary, fontSize: 15, fontWeight: "800" },
+  uploadDropzone: {
+    marginTop: 10,
+    minHeight: 160,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderStyle: "dashed",
+    borderColor: colors.borderStrong,
+    backgroundColor: colors.surfaceTertiary,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 20,
+    gap: 8,
+  },
+  uploadIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: colors.brandTertiary,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 4,
+  },
+  uploadTitle: {
+    color: colors.onSurface,
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  uploadHint: {
+    color: colors.muted,
+    fontSize: 12,
+    textAlign: "center",
+    lineHeight: 17,
+  },
+  uploadPreviewWrap: {
+    marginTop: 10,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceSecondary,
+    overflow: "hidden",
+  },
+  uploadPreview: {
+    width: "100%",
+    height: 180,
+    backgroundColor: colors.surfaceTertiary,
+  },
+  uploadPreviewActions: {
+    flexDirection: "row",
+    gap: 8,
+    padding: 10,
+  },
+  uploadBtn: {
+    flex: 1,
+    minHeight: 40,
+    borderRadius: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+  },
+  uploadBtnSecondary: {
+    backgroundColor: colors.brandTertiary,
+  },
+  uploadBtnGhost: {
+    backgroundColor: colors.surfaceTertiary,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  uploadBtnText: { fontSize: 13, fontWeight: "800" },
+  uploadErrorRow: {
+    marginTop: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  settingsBtn: {
+    backgroundColor: colors.brandTertiary,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+  },
+  settingsBtnText: {
+    color: colors.onBrandTertiary,
+    fontSize: 12,
+    fontWeight: "800",
+  },
 }));

@@ -9,14 +9,18 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.emergent.interactiveorgans.x8szi2"
+      "bundleIdentifier": "com.emergent.interactiveorgans.x8szi2",
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "Upload anatomy images from your photos"
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#000000"
       },
-      "package": "com.emergent.interactiveorgans.x8szi2"
+      "package": "com.emergent.interactiveorgans.x8szi2",
+      "permissions": ["READ_EXTERNAL_STORAGE", "READ_MEDIA_IMAGES"]
     },
     "web": {
       "bundler": "metro",
@@ -36,6 +40,12 @@
       ],
       "expo-font",
       "expo-image",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Upload anatomy images from your photos"
+        }
+      ],
       "expo-secure-store",
       "expo-web-browser",
       "expo-status-bar"
