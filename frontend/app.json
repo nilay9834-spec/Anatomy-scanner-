@@ -11,7 +11,8 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.emergent.interactiveorgans.x8szi2",
       "infoPlist": {
-        "NSPhotoLibraryUsageDescription": "Upload anatomy images from your photos"
+        "NSPhotoLibraryUsageDescription": "Upload anatomy images from your photos",
+        "NSCameraUsageDescription": "Scan anatomy marker cards to open 3D models"
       }
     },
     "android": {
@@ -20,7 +21,7 @@
         "backgroundColor": "#000000"
       },
       "package": "com.emergent.interactiveorgans.x8szi2",
-      "permissions": ["READ_EXTERNAL_STORAGE", "READ_MEDIA_IMAGES"]
+      "permissions": ["READ_EXTERNAL_STORAGE", "READ_MEDIA_IMAGES", "CAMERA"]
     },
     "web": {
       "bundler": "metro",
@@ -40,6 +41,13 @@
       ],
       "expo-font",
       "expo-image",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Scan anatomy marker cards to open 3D models",
+          "recordAudioAndroid": false
+        }
+      ],
       [
         "expo-image-picker",
         {

@@ -307,6 +307,7 @@ class AnatomyModel(BaseModel):
     fact: str
     image_url: Optional[str] = None
     model_url: Optional[str] = None
+    marker_id: Optional[int] = None
     accent: str = "blue"
     display_order: int = 0
     active: bool = True
@@ -322,6 +323,7 @@ class AnatomyModelInput(BaseModel):
     fact: str = Field(min_length=1, max_length=300)
     image_url: Optional[str] = None
     model_url: Optional[str] = None
+    marker_id: Optional[int] = Field(default=None, ge=1, le=9999)
     accent: str = "blue"
     display_order: int = 0
     active: bool = True
@@ -355,6 +357,7 @@ def model_out(doc: dict) -> AnatomyModel:
         fact=doc["fact"],
         image_url=doc.get("image_url"),
         model_url=doc.get("model_url"),
+        marker_id=doc.get("marker_id"),
         accent=doc.get("accent", "blue"),
         display_order=doc.get("display_order", 0),
         active=doc.get("active", True),
@@ -560,6 +563,16 @@ async def list_public_models(user: UserPublic = Depends(current_user)):
     return [model_out(doc) async for doc in cursor]
 
 
+@api_router.get("/scan/{marker_id}", response_model=AnatomyModel)
+async def scan_marker(marker_id: int, user: UserPublic = Depends(current_user)):
+    doc = await db.anatomy_models.find_one(
+        {"marker_id": marker_id, "active": True}, {"_id": 0},
+    )
+    if not doc:
+        raise HTTPException(status_code=404, detail=f"No anatomy model is linked to marker {marker_id}.")
+    return model_out(doc)
+
+
 # ─── Admin routes ────────────────────────────────────────────────────────────
 
 @api_router.get("/admin/stats")
@@ -622,6 +635,10 @@ async def admin_list_models(_: UserPublic = Depends(require_admin)):
 
 @api_router.post("/admin/anatomy-models", response_model=AnatomyModel, status_code=201)
 async def admin_create_model(data: AnatomyModelInput, _: UserPublic = Depends(require_admin)):
+    if data.marker_id is not None:
+        existing = await db.anatomy_models.find_one({"marker_id": data.marker_id}, {"_id": 0})
+        if existing:
+            raise HTTPException(status_code=409, detail=f"Marker ID {data.marker_id} is already used by {existing['name']}.")
     doc = {
         "id": str(uuid.uuid4()),
         **data.model_dump(),
@@ -638,6 +655,12 @@ async def admin_update_model(model_id: str, data: AnatomyModelInput, _: UserPubl
     doc = await db.anatomy_models.find_one({"id": model_id}, {"_id": 0})
     if not doc:
         raise HTTPException(status_code=404, detail="Model not found")
+    if data.marker_id is not None:
+        clash = await db.anatomy_models.find_one(
+            {"marker_id": data.marker_id, "id": {"$ne": model_id}}, {"_id": 0},
+        )
+        if clash:
+            raise HTTPException(status_code=409, detail=f"Marker ID {data.marker_id} is already used by {clash['name']}.")
     await db.anatomy_models.update_one(
         {"id": model_id},
         {"$set": {**data.model_dump(), "updated_at": now_iso()}},
@@ -759,6 +782,7 @@ DEFAULT_MODELS = [
         "fact": "Adults breathe around 22,000 times each day.",
         "model_url": "https://glittering-bublanina-243c34.netlify.app/",
         "image_url": None,
+        "marker_id": 101,
         "accent": "blue",
         "display_order": 1,
         "active": True,
@@ -771,6 +795,7 @@ DEFAULT_MODELS = [
         "fact": "Your heart beats about 100,000 times daily.",
         "model_url": None,
         "image_url": None,
+        "marker_id": 102,
         "accent": "red",
         "display_order": 2,
         "active": True,
@@ -783,6 +808,7 @@ DEFAULT_MODELS = [
         "fact": "The liver performs more than 500 vital functions.",
         "model_url": None,
         "image_url": None,
+        "marker_id": 103,
         "accent": "amber",
         "display_order": 3,
         "active": True,
@@ -795,6 +821,7 @@ DEFAULT_MODELS = [
         "fact": "Each kidney contains roughly one million nephrons.",
         "model_url": None,
         "image_url": None,
+        "marker_id": 104,
         "accent": "pink",
         "display_order": 4,
         "active": True,

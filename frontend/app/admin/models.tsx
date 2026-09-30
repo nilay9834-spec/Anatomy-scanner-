@@ -17,6 +17,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import QRCode from "react-native-qrcode-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import {
@@ -40,6 +41,7 @@ const EMPTY_FORM: AnatomyModelInput = {
   fact: "",
   image_url: "",
   model_url: "",
+  marker_id: null,
   accent: "blue",
   display_order: 0,
   active: true,
@@ -109,6 +111,7 @@ export default function ModelsScreen() {
         fact: m.fact,
         image_url: m.image_url ?? "",
         model_url: m.model_url ?? "",
+        marker_id: m.marker_id ?? null,
         accent: m.accent,
         display_order: m.display_order,
         active: !m.active,
@@ -167,6 +170,20 @@ export default function ModelsScreen() {
                     <Text style={styles.modelName}>{m.name}</Text>
                     <Text style={styles.modelCat}>{m.category}</Text>
                     <View style={styles.modelBadges}>
+                      {m.marker_id != null ? (
+                        <View style={[styles.pill, { backgroundColor: "#DBEAFE" }]}>
+                          <Ionicons name="qr-code-outline" size={11} color="#1E40AF" />
+                          <Text style={[styles.pillText, { color: "#1E40AF" }]}>
+                            Marker {m.marker_id}
+                          </Text>
+                        </View>
+                      ) : (
+                        <View style={[styles.pill, { backgroundColor: colors.surfaceTertiary }]}>
+                          <Text style={[styles.pillText, { color: colors.muted }]}>
+                            No marker
+                          </Text>
+                        </View>
+                      )}
                       {m.model_url ? (
                         <View style={[styles.pill, { backgroundColor: colors.brandTertiary }]}>
                           <Ionicons
@@ -311,6 +328,7 @@ function ModelEditor({
           fact: editing.fact,
           image_url: editing.image_url ?? "",
           model_url: editing.model_url ?? "",
+          marker_id: editing.marker_id ?? null,
           accent: editing.accent,
           display_order: editing.display_order,
           active: editing.active,
@@ -390,6 +408,7 @@ function ModelEditor({
         ...form,
         image_url: form.image_url?.trim() || null,
         model_url: form.model_url?.trim() || null,
+        marker_id: form.marker_id ?? null,
       };
       const res = editing
         ? await adminUpdateModel(token, editing.id, payload)
@@ -448,10 +467,53 @@ function ModelEditor({
           <FormField label="Fun fact *" value={form.fact} onChange={(v) => set("fact", v)} multiline testID="model-fact" />
 
           <View style={{ marginTop: 16 }}>
-            <Text style={styles.formLabel}>Model image</Text>
+            <Text style={styles.formLabel}>Marker ID *</Text>
             <Text style={styles.helperText}>
-              Used as the card thumbnail in the gallery and the banner on the detail
-              screen.
+              A unique number (e.g. 101) printed on the physical card. The scanner
+              reads a QR code containing this number to open the 3D model.
+            </Text>
+            <View style={[styles.inputWrap, { marginTop: 8 }]}>
+              <Ionicons name="qr-code-outline" size={19} color={colors.muted} />
+              <TextInput
+                keyboardType="number-pad"
+                onChangeText={(v) => {
+                  const n = Number(v.replace(/[^0-9]/g, ""));
+                  set("marker_id", isNaN(n) || n === 0 ? null : n);
+                }}
+                placeholder="101"
+                placeholderTextColor={colors.muted}
+                style={styles.input}
+                value={form.marker_id != null ? String(form.marker_id) : ""}
+                testID="model-marker-id"
+              />
+            </View>
+            {form.marker_id != null ? (
+              <View style={styles.qrPreviewWrap} testID="model-marker-qr-preview">
+                <View style={styles.qrBox}>
+                  <QRCode
+                    value={`marker:${form.marker_id}`}
+                    size={140}
+                    backgroundColor="#FFFFFF"
+                    color="#0F172A"
+                  />
+                </View>
+                <View style={{ flex: 1, gap: 4 }}>
+                  <Text style={styles.qrTitle}>Marker ID: {form.marker_id}</Text>
+                  <Text style={styles.qrHint}>
+                    Print this QR code on the anatomy card. When a user scans it
+                    with the app, the 3D model opens immediately.
+                  </Text>
+                  <Text style={styles.qrValue}>marker:{form.marker_id}</Text>
+                </View>
+              </View>
+            ) : null}
+          </View>
+
+          <View style={{ marginTop: 16 }}>
+            <Text style={styles.formLabel}>Marker card image</Text>
+            <Text style={styles.helperText}>
+              A photo of the printed marker card. Shown as the card thumbnail in
+              the gallery and as the banner on the detail screen.
             </Text>
             {form.image_url ? (
               <View style={styles.uploadPreviewWrap} testID="model-image-preview">
@@ -511,7 +573,7 @@ function ModelEditor({
                         color={colors.brandPrimary}
                       />
                     </View>
-                    <Text style={styles.uploadTitle}>Upload an image</Text>
+                    <Text style={styles.uploadTitle}>Upload marker card image</Text>
                     <Text style={styles.uploadHint}>
                       Pick a JPG, PNG or WEBP from your device (up to 8 MB).
                     </Text>
@@ -894,5 +956,32 @@ const useStyles = makeStyles((colors) => ({
     color: colors.onBrandTertiary,
     fontSize: 12,
     fontWeight: "800",
+  },
+  qrPreviewWrap: {
+    marginTop: 12,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 14,
+    padding: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceSecondary,
+  },
+  qrBox: {
+    padding: 8,
+    borderRadius: 12,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  qrTitle: { color: colors.onSurface, fontSize: 15, fontWeight: "800" },
+  qrHint: { color: colors.muted, fontSize: 12, lineHeight: 17 },
+  qrValue: {
+    marginTop: 4,
+    color: colors.brandPrimary,
+    fontSize: 12,
+    fontWeight: "800",
+    letterSpacing: 0.6,
   },
 }));

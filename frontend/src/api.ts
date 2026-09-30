@@ -33,6 +33,7 @@ export type AnatomyModel = {
   fact: string;
   image_url?: string | null;
   model_url?: string | null;
+  marker_id?: number | null;
   accent: string;
   display_order: number;
   active: boolean;
@@ -116,6 +117,10 @@ export function getAnatomyModels(token: string) {
   return request<AnatomyModel[]>("/api/anatomy-models", {}, token);
 }
 
+export function scanMarker(token: string, markerId: number) {
+  return request<AnatomyModel>(`/api/scan/${markerId}`, {}, token);
+}
+
 // ─── Admin ─────────────────────────────────────────────────────────────────
 
 export function adminGetStats(token: string) {
@@ -153,6 +158,7 @@ export type AnatomyModelInput = {
   fact: string;
   image_url?: string | null;
   model_url?: string | null;
+  marker_id?: number | null;
   accent: string;
   display_order: number;
   active: boolean;
